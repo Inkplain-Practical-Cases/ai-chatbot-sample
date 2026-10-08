@@ -1,0 +1,541 @@
+{
+  "name": "Mini RAG Chatbot SGDD",
+  "nodes": [
+    {
+      "id": "start-node",
+      "type": "diagramNode",
+      "position": { "x": -1100, "y": 300 },
+      "width": 140,
+      "height": 90,
+      "data": {
+        "label": "Start",
+        "shape": "start",
+        "color": "#52c41a",
+        "fields": [],
+        "attributes": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "fe-connect",
+      "type": "diagramNode",
+      "position": { "x": -850, "y": 260 },
+      "width": 360,
+      "height": 170,
+      "data": {
+        "label": "FE Connect & Auth",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "fe-connect-canvas",
+        "linkedCanvasName": "FE Connect & Auth",
+        "operationSteps": [
+          {
+            "id": "fe-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Open WebSocket",
+            "description": "test_client.html opens ws://localhost:8000/ws/chat."
+          },
+          {
+            "id": "fe-2",
+            "order_no": 2,
+            "showInDiagram": true,
+            "title": "Send auth message",
+            "description": "Sends {\"type\": \"auth\", \"token\": \"<jwt>\"} as the first message, per the protocol."
+          }
+        ],
+        "attributes": [
+          { "id": "a1", "key": "unit_type", "value": "boundary" },
+          { "id": "a2", "key": "source_file", "value": "test_client.html" },
+          { "id": "a3", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "chat-router",
+      "type": "diagramNode",
+      "position": { "x": -400, "y": 260 },
+      "width": 360,
+      "height": 170,
+      "data": {
+        "label": "Chat Router (thin door)",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "chat-router-canvas",
+        "linkedCanvasName": "Chat Router",
+        "operationSteps": [
+          {
+            "id": "cr-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Declare /ws/chat route",
+            "description": "Injects embedder, vectorstore, and llm singletons via Depends(), then calls handle_chat_socket(). Contains zero business logic — per the CDAF thin-door rule."
+          }
+        ],
+        "attributes": [
+          { "id": "b1", "key": "unit_type", "value": "endpoint" },
+          { "id": "b2", "key": "route", "value": "WS /ws/chat" },
+          { "id": "b3", "key": "source_file", "value": "app/features/feature_chat/router.py" },
+          { "id": "b4", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "handle-chat-socket",
+      "type": "diagramNode",
+      "position": { "x": 50, "y": 200 },
+      "width": 400, "height": 320,
+      "data": {
+        "label": "Handle Chat Socket",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "handle-chat-socket-canvas",
+        "linkedCanvasName": "Handle Chat Socket",
+        "operationSteps": [
+          {
+            "id": "hcs-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Accept the WebSocket",
+            "description": "await websocket.accept()."
+          },
+          {
+            "id": "hcs-2",
+            "order_no": 2,
+            "showInDiagram": true,
+            "title": "Verify JWT",
+            "description": "Calls Verify JWT. Returns TokenPayload (sub, department, level) or AuthError → auth_failed + close."
+          },
+          {
+            "id": "hcs-3",
+            "order_no": 3,
+            "showInDiagram": true,
+            "title": "Send auth_success",
+            "description": "Replies with user_id, department, level from the verified token — never mocked."
+          },
+          {
+            "id": "hcs-4",
+            "order_no": 4,
+            "showInDiagram": true,
+            "title": "Message loop: retrieve",
+            "description": "For every {\"type\": \"message\"}, calls Retrieve Chunks with the user's own department/level."
+          },
+          {
+            "id": "hcs-5",
+            "order_no": 5,
+            "showInDiagram": true,
+            "title": "Message loop: stream answer",
+            "description": "Calls Stream LLM Answer with the retrieved chunks and user.sub; forwards each token as {\"type\": \"stream\"}, then {\"type\": \"done\"}."
+          },
+          {
+            "id": "hcs-6",
+            "order_no": 6,
+            "showInDiagram": true,
+            "title": "Catch and surface errors",
+            "description": "Any retrieval/LLM/tool exception is caught and sent as {\"type\": \"error\", \"message\": ...} — the connection stays open (README requirement 7)."
+          }
+        ],
+        "attributes": [
+          { "id": "c1", "key": "unit_type", "value": "orchestrator" },
+          { "id": "c2", "key": "role", "value": "Owns the whole WS lifecycle: auth handshake then message loop" },
+          { "id": "c3", "key": "sequential", "value": "yes per connection; concurrent across connections (asyncio event loop)" },
+          { "id": "c4", "key": "source_file", "value": "app/features/feature_chat/handlers/handle_chat_socket.py" },
+          { "id": "c5", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "verify-jwt",
+      "type": "diagramNode",
+      "position": { "x": 550, "y": 0 },
+      "width": 360, "height": 200,
+      "data": {
+        "label": "Verify JWT",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "verify-jwt-canvas",
+        "linkedCanvasName": "Verify JWT",
+        "operationSteps": [
+          {
+            "id": "vj-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Decode and verify signature/expiry",
+            "description": "jwt.decode(token, JWT_SECRET, algorithms=[HS256]). ExpiredSignatureError / InvalidTokenError → AuthError."
+          },
+          {
+            "id": "vj-2",
+            "order_no": 2,
+            "showInDiagram": true,
+            "title": "Validate claim shape",
+            "description": "Parses the payload into TokenPayload (sub, email, department, level) via Pydantic; a malformed payload also raises AuthError."
+          }
+        ],
+        "attributes": [
+          { "id": "d1", "key": "unit_type", "value": "service" },
+          { "id": "d2", "key": "algorithm", "value": "HS256" },
+          { "id": "d3", "key": "source_file", "value": "app/features/feature_auth/services/service_verify_jwt.py" },
+          { "id": "d4", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "retrieve-chunks",
+      "type": "diagramNode",
+      "position": { "x": 550, "y": 240 },
+      "width": 360, "height": 220,
+      "data": {
+        "label": "Retrieve Chunks (RBAC)",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "retrieve-chunks-canvas",
+        "linkedCanvasName": "Retrieve Chunks",
+        "operationSteps": [
+          {
+            "id": "rc-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Embed the user's message",
+            "description": "embedder.embed([text]) run via asyncio.to_thread — sentence-transformers is sync/CPU-bound, must not block the event loop."
+          },
+          {
+            "id": "rc-2",
+            "order_no": 2,
+            "showInDiagram": true,
+            "title": "Query the vector store",
+            "description": "store.query(embedding, department, level, limit) via asyncio.to_thread. Calls Chroma Vector Store."
+          }
+        ],
+        "attributes": [
+          { "id": "e1", "key": "unit_type", "value": "service" },
+          { "id": "e2", "key": "blocking_call_guard", "value": "asyncio.to_thread on both embed and query" },
+          { "id": "e3", "key": "source_file", "value": "app/features/feature_chat/services/service_retrieve_chunks.py" },
+          { "id": "e4", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "chroma-store",
+      "type": "diagramNode",
+      "position": { "x": 1050, "y": 240 },
+      "width": 380, "height": 260,
+      "data": {
+        "label": "Chroma Vector Store",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "chroma-store-canvas",
+        "linkedCanvasName": "Chroma Vector Store",
+        "operationSteps": [
+          {
+            "id": "cs-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Build the RBAC where filter",
+            "description": "{$and: [{$or: [{department: user.department}, {department: 'hr'}]}, {access_level: {$lte: user.level}}]} — expresses 'own department OR hr, capped by level' as one DB-layer filter."
+          },
+          {
+            "id": "cs-2",
+            "order_no": 2,
+            "showInDiagram": true,
+            "title": "Run similarity search within the filtered set",
+            "description": "collection.query(query_embeddings, n_results, where). Top-k is computed only over permitted chunks — never post-filtered in Python."
+          },
+          {
+            "id": "cs-3",
+            "order_no": 3,
+            "showInDiagram": true,
+            "title": "Map results to Chunk models",
+            "description": "ids/documents/metadatas zipped into Chunk(id, text, department, access_level, source_file, page)."
+          }
+        ],
+        "attributes": [
+          { "id": "f1", "key": "unit_type", "value": "gateway" },
+          { "id": "f2", "key": "storage_mode", "value": "local/persistent, ./chroma_data — no Docker" },
+          { "id": "f3", "key": "rbac_enforced_at", "value": "DB query layer (README requirement 3)" },
+          { "id": "f4", "key": "source_file", "value": "app/providers/vectorstore/chroma_store.py" },
+          { "id": "f5", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "stream-llm",
+      "type": "diagramNode",
+      "position": { "x": 550, "y": 540 },
+      "width": 380, "height": 260,
+      "data": {
+        "label": "Stream LLM Answer",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "stream-llm-canvas",
+        "linkedCanvasName": "Stream LLM Answer",
+        "operationSteps": [
+          {
+            "id": "sl-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Build the system prompt",
+            "description": "Injects retrieved chunks as CONTEXT; instructs the model to answer naturally when context isn't relevant, cite source files, and never invent a tool for document content."
+          },
+          {
+            "id": "sl-2",
+            "order_no": 2,
+            "showInDiagram": true,
+            "title": "Bind the employee-context tool to this user",
+            "description": "make_employee_context_tool(user_id) — a zero-argument closure over the JWT's sub claim, so the model can never choose whose data to fetch."
+          },
+          {
+            "id": "sl-3",
+            "order_no": 3,
+            "showInDiagram": true,
+            "title": "Call the LLM provider",
+            "description": "llm.stream_chat(system_prompt, user_message, tools=[...]) — calls LLM Provider. Yields tokens as they arrive."
+          }
+        ],
+        "attributes": [
+          { "id": "g1", "key": "unit_type", "value": "service" },
+          { "id": "g2", "key": "source_file", "value": "app/features/feature_chat/services/service_stream_llm.py" },
+          { "id": "g3", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "employee-tool",
+      "type": "diagramNode",
+      "position": { "x": 1050, "y": 540 },
+      "width": 380, "height": 280,
+      "data": {
+        "label": "Employee Context Tool (parallel)",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "employee-tool-canvas",
+        "linkedCanvasName": "Employee Context Tool",
+        "operationSteps": [
+          {
+            "id": "et-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Call get_profile, get_manager, get_team concurrently",
+            "description": "asyncio.gather(service_get_profile, service_get_manager, service_get_team) — each mocks asyncio.sleep(1). Total wall time ≈1s, not ≈3s (measured: 1.01s)."
+          },
+          {
+            "id": "et-2",
+            "order_no": 2,
+            "showInDiagram": true,
+            "title": "Merge into one dict",
+            "description": "{**profile, **manager, **team} → {name, grade, manager, team_size, team_name}, returned to the LLM as the tool result."
+          }
+        ],
+        "attributes": [
+          { "id": "h1", "key": "unit_type", "value": "tool-provider feature (documented exception, A2 §3)" },
+          { "id": "h2", "key": "concurrency", "value": "asyncio.gather — README requirement 5" },
+          { "id": "h3", "key": "measured_latency", "value": "1.01s isolated (see mds/TEST_SCENARIOS.md)" },
+          { "id": "h4", "key": "source_file", "value": "app/features/feature_employee_tool/tool_get_employee_context.py" },
+          { "id": "h5", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "llm-provider",
+      "type": "diagramNode",
+      "position": { "x": 1550, "y": 540 },
+      "width": 380, "height": 300,
+      "data": {
+        "label": "LLM Provider (pluggable)",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "llm-provider-canvas",
+        "linkedCanvasName": "LLM Provider",
+        "operationSteps": [
+          {
+            "id": "lp-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Resolve the active provider",
+            "description": "get_llm_provider() reads LLM_PROVIDER from .env — 'gemini' (default) or 'openai'. Feature code depends only on the LLMProvider Protocol."
+          },
+          {
+            "id": "lp-2",
+            "order_no": 2,
+            "showInDiagram": true,
+            "title": "Gemini path: automatic function calling",
+            "description": "client.aio.chats.create(...).send_message_stream() — the SDK detects and invokes get_employee_context itself when the model requests it, then continues streaming the final answer."
+          },
+          {
+            "id": "lp-3",
+            "order_no": 3,
+            "showInDiagram": true,
+            "title": "OpenAI path: manual tool-call loop",
+            "description": "One non-streamed call to check for tool_calls, execute the matched local function, append its result as a 'tool' message, then a second streamed call for the final answer."
+          }
+        ],
+        "attributes": [
+          { "id": "i1", "key": "unit_type", "value": "gateway" },
+          { "id": "i2", "key": "default_model", "value": "gemini-2.5-flash (gemini-2.5-flash-lite was tried and dropped — see Known Issues)" },
+          { "id": "i3", "key": "swap_mechanism", "value": "single .env line, no code change in feature_chat" },
+          { "id": "i4", "key": "source_file", "value": "app/providers/llm/gemini_provider.py, app/providers/llm/openai_provider.py" },
+          { "id": "i5", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "fe-receive",
+      "type": "diagramNode",
+      "position": { "x": 550, "y": 860 },
+      "width": 360, "height": 170,
+      "data": {
+        "label": "FE Receive Stream",
+        "icon": "process-executor",
+        "shape": "module",
+        "color": "#1677ff",
+        "linkedCanvasId": "fe-receive-canvas",
+        "linkedCanvasName": "FE Receive Stream",
+        "operationSteps": [
+          {
+            "id": "fr-1",
+            "order_no": 1,
+            "showInDiagram": true,
+            "title": "Append streamed tokens",
+            "description": "Each {\"type\": \"stream\"} appends text to the current bot message bubble, before a blinking cursor."
+          },
+          {
+            "id": "fr-2",
+            "order_no": 2,
+            "showInDiagram": true,
+            "title": "Finish or show error",
+            "description": "{\"type\": \"done\"} removes the cursor. {\"type\": \"error\"} shows the message but leaves the socket open for the next question."
+          }
+        ],
+        "attributes": [
+          { "id": "j1", "key": "unit_type", "value": "boundary" },
+          { "id": "j2", "key": "source_file", "value": "test_client.html" },
+          { "id": "j3", "key": "generated_by", "value": "Claude" }
+        ],
+        "fields": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "boxView": true,
+        "viewMode": "side-by-side",
+        "locked": false
+      },
+      "parentId": null
+    },
+    {
+      "id": "end-node",
+      "type": "diagramNode",
+      "position": { "x": 1050, "y": 890 },
+      "width": 140, "height": 90,
+      "data": {
+        "label": "End",
+        "shape": "end",
+        "color": "#52c41a",
+        "fields": [],
+        "attributes": [],
+        "body": "",
+        "config": {},
+        "emoji": "",
+        "locked": false
+      },
+      "parentId": null
+    }
+  ],
+  "edges": [
+    { "id": "e-start-fe", "source": "start-node", "target": "fe-connect", "type": "smoothstep" },
+    { "id": "e-fe-router", "source": "fe-connect", "target": "chat-router", "type": "smoothstep" },
+    { "id": "e-router-handle", "source": "chat-router", "target": "handle-chat-socket", "type": "smoothstep" },
+    { "id": "e-handle-verify", "source": "handle-chat-socket", "target": "verify-jwt", "type": "smoothstep", "label": "auth message" },
+    { "id": "e-handle-retrieve", "source": "handle-chat-socket", "target": "retrieve-chunks", "type": "smoothstep", "label": "message loop" },
+    { "id": "e-retrieve-chroma", "source": "retrieve-chunks", "target": "chroma-store", "type": "smoothstep" },
+    { "id": "e-handle-stream", "source": "handle-chat-socket", "target": "stream-llm", "type": "smoothstep" },
+    { "id": "e-stream-tool", "source": "stream-llm", "target": "employee-tool", "type": "smoothstep", "label": "if personal question" },
+    { "id": "e-stream-provider", "source": "stream-llm", "target": "llm-provider", "type": "smoothstep" },
+    { "id": "e-tool-provider", "source": "employee-tool", "target": "llm-provider", "type": "smoothstep", "label": "tool result" },
+    { "id": "e-handle-fe", "source": "handle-chat-socket", "target": "fe-receive", "type": "smoothstep", "label": "stream / done / error" },
+    { "id": "e-fe-end", "source": "fe-receive", "target": "end-node", "type": "smoothstep" }
+  ]
+}
